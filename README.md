@@ -3,14 +3,14 @@
 # how to execute??
 1. open terminal
 2. run roscore
-3. launch SITL
-3-1. source environment
+3. launch SITL 
+* source environment
 - cd catkin_ws/src/Firmware
 - source environment
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build_posix_sitl_default
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
-- run launch file
+* run launch file
 roslaunch px4 wc_multi_uav_mavros_sitl.launch
 
 4. run wc_gazebo control node (there are 2 options)
