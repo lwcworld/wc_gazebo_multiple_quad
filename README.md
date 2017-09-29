@@ -4,7 +4,7 @@
 1. open terminal
 2. run roscore
 3. launch SITL 
-* source environment
+<source environment>
 - cd catkin_ws/src/Firmware
 - source environment
 source Tools/setup_gazebo.bash $(pwd) $(pwd)/build_posix_sitl_default
