@@ -30,7 +30,10 @@ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
 
 
 # github upload
-1. git add *
-2. git commit -m "comments"
-3. git push origin master
+1. 
+<pre><code>git add *</code></pre>
+2. 
+<pre><code>git commit -m "comments"</code></pre>
+3. 
+<pre><code>git push origin master</code></pre>
 
