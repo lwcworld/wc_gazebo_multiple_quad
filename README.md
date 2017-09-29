@@ -1,11 +1,11 @@
 ## wc gazebo with multiple quadrotors ##
 
 # how to execute??
-* open terminal
+## open terminal
 
-* run roscore
+## run roscore
 
-* launch SITL 
+## launch SITL 
 1. source environment
   - cd catkin_ws/src/Firmware
   - source environment
@@ -15,7 +15,7 @@ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
 2. run launch file
 roslaunch px4 wc_multi_uav_mavros_sitl.launch
 
-* run wc_gazebo control node (there are 2 options)
+## run wc_gazebo control node (there are 2 options)
 1. option 1 (run in pycharm)
 - run pycharm in terminal
 - open project & build & run
