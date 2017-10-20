@@ -2038,7 +2038,7 @@ p, li { white-space: pre-wrap; }
     </rect>
    </property>
    <property name="minimum">
-    <number>-20</number>
+    <number>-180</number>
    </property>
    <property name="maximum">
     <number>180</number>

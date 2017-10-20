@@ -52,7 +52,10 @@ class Data_storage(object):
             # rospy.Subscriber("/uav1/mavros/global_position/local", PoseWithCovarianceStamped, local_position_callback_1)
             self.des_x = 0
             self.des_y = 0
-            self.des_z = 0
+            self.des_z = 3
+
+            self.formation_heading = 0
+            self.formation_velocity = 0
 
         elif idx_uav == 2:
             self.arm  = rospy.ServiceProxy('/uav2/mavros/cmd/arming', CommandBool)
@@ -62,7 +65,7 @@ class Data_storage(object):
             rospy.Subscriber("/uav2/mavros/local_position/pose", PoseStamped, local_position_callback_2)
             self.des_x = 1
             self.des_y = 1
-            self.des_z = 0
+            self.des_z = 3
 
         elif idx_uav == 3:
             self.arm  = rospy.ServiceProxy('/uav3/mavros/cmd/arming', CommandBool)
@@ -72,7 +75,7 @@ class Data_storage(object):
             rospy.Subscriber("/uav3/mavros/local_position/pose", PoseStamped, local_position_callback_3)
             self.des_x = 1
             self.des_y = -1
-            self.des_z = 0
+            self.des_z = 3
 
         self.roll_cmd = 0
         self.pitch_cmd = 0
@@ -80,6 +83,9 @@ class Data_storage(object):
         self.throttle_cmd = 0
 
         self.state = PoseStamped()
+        self.vel_x = 0
+        self.vel_y = 0
+        self.vel_z = 0
 
 # define agent (global variable)
 agent1 = Data_storage(idx_uav=1)
@@ -149,6 +155,9 @@ class PX4_GUI(QtWidgets.QDialog):
         self.text_state_y_3 = self.plainTextEdit_state_y_3
         self.text_state_z_3 = self.plainTextEdit_state_z_3
 
+        self.slider_formation_heading = self.horizontalSlider_heading
+        self.slider_formation_velocity = self.horizontalSlider_velocity
+
         self.scene = QGraphicsScene()
 
         self.waypoint_run = 0
@@ -169,12 +178,6 @@ class PX4_GUI(QtWidgets.QDialog):
 
     def update_ctrl(self):
         t = rospy.get_time()
-        # if self.waypoint_run == 1 and self.traj.ts<t and self.traj.tf>t:
-        #     agent1.des_x = self.traj.des_t(t, self.traj.coeff_x, self.traj.S, self.traj.T)
-        #     agent1.des_y = self.traj.des_t(t, self.traj.coeff_y, self.traj.S, self.traj.T)
-        #     agent1.des_z = self.traj.des_t(t, self.traj.coeff_z, self.traj.S, self.traj.T)
-        #     if t>=self.traj.tf:
-        #         self.waypoint_run = 0
 
         self.slider_roll_1.setValue(agent1.roll_cmd*100+50)
         self.slider_pitch_1.setValue(agent1.pitch_cmd*100+50)
@@ -510,6 +513,15 @@ class PX4_GUI(QtWidgets.QDialog):
         self.ctrl_type = 'joystick'
 
     @pyqtSlot()
+    def slot510(self):  # horizontal slider(formation heading)
+        agent1.formation_heading = self.slider_formation_heading.value()
+
+    @pyqtSlot()
+    def slot511(self):  # horizontal slider(formation velocity)
+        agent1.formation_velocity = self.slider_formation_velocity.value()
+
+
+    @pyqtSlot()
     def slot50(self): # click offboard input as autonomous
         self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
         self.ctrl_type = 'auto'
@@ -696,44 +708,6 @@ class Offboard_thread(Thread):
     def myExit(self):
         self.__exit = True
 
-
-# class RCOverride_thread(Thread): # it doesn't work yet
-#     def __init__(self):
-#         Thread.__init__(self)
-#
-#         self.rate = rospy.Rate(20) # 20Hz
-#
-#         self.ctrl = rc_override()
-#
-#         self.__suspend = False
-#         self.__exit = False
-#         self.daemon = True
-#
-#     def run(self):
-#         while not rospy.is_shutdown():
-#             try:
-#                 if self.__suspend == True:
-#                     continue
-#                 self.ctrl.calc_cmd_rc()
-#                 self.ctrl.talk()
-#                 self.rate.sleep()
-#
-#                 ### Exit ###
-#                 if self.__exit:
-#                     break
-#
-#             except rospy.ROSInterruptException:
-#                 pass
-#
-#     def mySuspend(self):
-#         self.__suspend = True
-#
-#     def myResume(self):
-#         self.__suspend = False
-#
-#     def myExit(self):
-#         self.__exit = True
-
 class setpoint_att(object):
     def __init__(self):
         # self.pub_att = rospy.Publisher('/uav3/mavros/setpoint_attitude/attitude', PoseStamped, queue_size=10)
@@ -807,11 +781,10 @@ class setpoint_att(object):
         return (self.cmd_att, self.cmd_thr)
 
     def calc_cmd_att_thr_auto(self, idx_uav): # offboard control autonomously (roll/pitch/yaw/throttle)
+        # -----------------------------------------------------------------
         t_prev = self.cmd_att.header.stamp.secs
         self.cmd_att.header.stamp.secs = rospy.get_time()
         t_now = self.cmd_att.header.stamp.secs
-
-
 
         dt = t_now - t_prev
         if dt == 0 :
@@ -824,6 +797,7 @@ class setpoint_att(object):
         elif idx_uav == 3:
             agent = agent3
 
+        # -----------------------------------------------------------------
         self.des_x = agent.des_x  #
         self.des_y = agent.des_y  #
         self.des_z = agent.des_z  #
@@ -862,6 +836,19 @@ class setpoint_att(object):
         state_vy = (self.state_y - state_y_prev) / dt
         state_vz = (self.state_z - state_z_prev) / dt
 
+        if idx_uav == 1:
+            agent1.vel_x = state_vx
+            agent1.vel_y = state_vy
+            agent1.vel_z = state_vz
+        elif idx_uav == 2:
+            agent2.vel_x = state_vx
+            agent2.vel_y = state_vy
+            agent2.vel_z = state_vz
+        elif idx_uav == 3:
+            agent3.vel_x = state_vx
+            agent3.vel_y = state_vy
+            agent3.vel_z = state_vz
+
         err_x = self.des_x - self.state_x
         err_y = self.des_y - self.state_y
         err_z = self.des_z - self.state_z
@@ -870,14 +857,65 @@ class setpoint_att(object):
         err_vy = self.des_vy - state_vy
         err_vz = self.des_vz - state_vz
 
-        acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
-        acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
+        # -----------------------------------------------------------------
+        n = 3  # number of uavs
+        m = 2  # number of dimension
+
+        ## Graph Theory
+        # Adjacency Matrix
+        AdjM = np.ones((n, n)) - np.eye(n);
+
+        # Degree Matrix
+        DegM = (n - 1) * np.eye(n);
+
+        # Laplacian matrix
+        L = DegM - AdjM;
+
+        # gain
+        kap1 = 3
+        kap2 = 3
+        kap3 = 3
+
+        ## Measurement Matrix
+        Hx = np.concatenate((np.eye(m), 0 * np.eye(m)), axis=1)
+        Hv = np.concatenate((0 * np.eye(m), np.eye(m)), axis=1)
+        Hxv = np.concatenate((np.kron(np.eye(n), Hx), np.kron(np.eye(n), Hv)), axis=0)
+
+        V = agent1.formation_velocity
+        th = agent1.formation_heading * math.pi/180
+        Xd = np.array([0, 0, V * np.cos(th), V * np.sin(th),
+                       -3 * np.cos(math.pi/4 - th), 3 * np.sin(math.pi/4 - th), V * np.cos(th), V * np.sin(th),
+                       -3 * np.cos(math.pi/4 + th), - 3 * np.sin(math.pi/4 + th), V * np.cos(th), V * np.sin(th)])
+
+        X = np.array([agent1.state.pose.position.x, agent1.state.pose.position.y, agent1.vel_x, agent1.vel_y,
+                      agent2.state.pose.position.x, agent2.state.pose.position.y, agent2.vel_x, agent2.vel_y,
+                      agent3.state.pose.position.x, agent3.state.pose.position.y, agent3.vel_x, agent3.vel_y])
+
+        print(X)
+        temp = np.concatenate((kap1 * L, kap2 * L + kap3 * np.eye(n)), axis=1)
+        U = np.dot(np.dot(-np.kron(temp, np.eye(m)), Hxv), np.transpose(X - Xd))
+
+        if idx_uav == 1:
+            acc_comm_x = U[0]
+            acc_comm_y = U[1]
+        elif idx_uav == 2:
+            acc_comm_x = U[2]
+            acc_comm_y = U[3]
+        elif idx_uav == 3:
+            acc_comm_x = U[4]
+            acc_comm_y = U[5]
+
+        # =================================================================
+
+        # acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
+        # acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
         acc_comm_z = self.des_az + self.Kv_z * err_vz + self.Kp_z * err_z
 
         u1 = self.m * (self.g + acc_comm_z)
 
         des_phi = 1/self.g * (acc_comm_x*math.sin(self.des_yaw) - acc_comm_y*math.cos(self.des_yaw))
         des_theta = 1/self.g * (acc_comm_x*math.cos(self.des_yaw) + acc_comm_y*math.sin(self.des_yaw))
+
 
         u_phi = self.Kp_phi*(des_phi-self.state_phi) + self.Kv_phi*(0-state_vphi)
         u_theta = self.Kp_theta*(des_theta-self.state_theta) + self.Kv_theta*(0-state_vtheta)
