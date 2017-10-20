@@ -218,6 +218,9 @@ class PX4_GUI(QtWidgets.QDialog):
         self.text_state_y_3.setPlainText(str("{0:.2f}".format(agent3.state.pose.position.y)))
         self.text_state_z_3.setPlainText(str("{0:.2f}".format(agent3.state.pose.position.z)))
 
+        self.plainTextEdit_formation_heading.setPlainText(str("{0:.2f}".format(agent1.formation_heading)))
+        self.plainTextEdit_formation_velocity.setPlainText(str("{0:.2f}".format(agent1.formation_velocity)))
+
         # self.tableWidget.setItem(5, 0, QtWidgets.QTableWidgetItem(str(["{0:.2f}".format(agent1.state.pose.position.x), "{0:.2f}".format(agent1.state.pose.position.y), "{0:.2f}".format(agent1.state.pose.position.z)])))
 
         pixmap = QtGui.QPixmap()
