@@ -981,7 +981,6 @@ class setpoint_att(object):
         elif idx_uav == 5:
             acc_comm_x = U[8]
             acc_comm_y = U[9]
-
         # =================================================================
 
         # acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x

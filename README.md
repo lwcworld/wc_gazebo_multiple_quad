@@ -14,7 +14,8 @@ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
 export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
 </code></pre>
 2. run launch file
-<pre><code> roslaunch px4 wc_multi_uav_mavros_sitl.launch </code></pre>
+3 agent : <pre><code> roslaunch px4 wc_multi_uav_mavros_sitl_3qaud.launch </code></pre>
+5 agent : <pre><code> roslaunch px4 wc_multi_uav_mavros_sitl_5qaud.launch </code></pre>
 
 ### run wc_gazebo control node (there are 2 options)
 ##### option 1 (run in pycharm)
