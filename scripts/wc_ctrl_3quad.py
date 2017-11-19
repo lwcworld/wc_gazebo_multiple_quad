@@ -236,8 +236,9 @@ class PX4_GUI(QtWidgets.QDialog):
     @pyqtSlot()
     def slot3(self): # click offboard radio button
         # !! should check there is periodic ctrl command
+        check = False
         check = agent1.mode(custom_mode="OFFBOARD")
-        if check.success == True:
+        if check == True:
             self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()

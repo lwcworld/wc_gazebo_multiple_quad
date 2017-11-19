@@ -26,56 +26,60 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsPixmapItem
 
+# image
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from cv2 import namedWindow, cvtColor, imshow
+from cv2 import destroyAllWindows, startWindowThread
+from cv2 import COLOR_BGR2GRAY
+from cv2 import blur, Canny, imwrite
+import cv2
+
+# darknet
+import darknet
+
+bridge = CvBridge()
+
 def local_position_callback_1(msg):
     agent1.state = msg
 
-def local_position_callback_2(msg):
-    agent2.state = msg
-    agent2.state.pose.position.x = agent2.state.pose.position.x + 1
-    agent2.state.pose.position.y = agent2.state.pose.position.y + 1
+def camera_callback_1(msg):
+    cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
 
-def local_position_callback_3(msg):
-    agent3.state = msg
-    agent3.state.pose.position.x = agent3.state.pose.position.x + 1
-    agent3.state.pose.position.y = agent3.state.pose.position.y - 1
+    imwrite('cam_img.jpg', cv_image)
+    r = darknet.detect(agent1.net, agent1.meta, "cam_img.jpg")
+    # cv2.rectangle(cv_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
+    if not r:
+        pass
+    else:
+        for i_obj in range(len(r)):
+            x = r[i_obj][2][0]
+            y = r[i_obj][2][1]
+            width = r[i_obj][2][2]
+            heigt = r[i_obj][2][3]
+            cv2.rectangle(cv_image, (int(x-width/2), int(y-heigt/2)), (int(x+width/2), int(y+heigt/2)), (255, 0, 0), 2)
+            cv2.putText(cv_image, r[i_obj][0], (int(x-width/2), int(y-heigt/2)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2, cv2.LINE_AA)
+    imshow("uav_cam_1", cv_image)
 
 # data
 class Data_storage(object):
     def __init__(self, idx_uav):
         if idx_uav == 1:
-            self.arm  = rospy.ServiceProxy('/uav1/mavros/cmd/arming', CommandBool)
-            self.mode = rospy.ServiceProxy('/uav1/mavros/set_mode', SetMode)
-            self.pub_att = rospy.Publisher('/uav1/mavros/setpoint_attitude/attitude', PoseStamped, queue_size=10)
-            self.pub_thr = rospy.Publisher('/uav1/mavros/setpoint_attitude/att_throttle', Float64, queue_size=10)
-            rospy.Subscriber("/uav1/mavros/local_position/pose", PoseStamped, local_position_callback_1)
+            self.arm  = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
+            self.mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
+            self.pub_att = rospy.Publisher('/mavros/setpoint_attitude/attitude', PoseStamped, queue_size=10)
+            self.pub_thr = rospy.Publisher('/mavros/setpoint_attitude/att_throttle', Float64, queue_size=10)
+            rospy.Subscriber("/mavros/local_position/pose", PoseStamped, local_position_callback_1)
             # rospy.Subscriber("/uav1/mavros/global_position/global", NavSatFix, local_position_callback_1)
             # rospy.Subscriber("/uav1/mavros/global_position/local", PoseWithCovarianceStamped, local_position_callback_1)
+
+            self.net = darknet.load_net("/home/lwc/darknet/cfg/yolo.cfg", "/home/lwc/darknet/yolo.weights", 0)
+            self.meta = darknet.load_meta("/home/lwc/darknet/cfg/coco.data")
+
             self.des_x = 0
             self.des_y = 0
-            self.des_z = 3
-
-            self.formation_heading = 0
-            self.formation_velocity = 0
-
-        elif idx_uav == 2:
-            self.arm  = rospy.ServiceProxy('/uav2/mavros/cmd/arming', CommandBool)
-            self.mode = rospy.ServiceProxy('/uav2/mavros/set_mode', SetMode)
-            self.pub_att = rospy.Publisher('/uav2/mavros/setpoint_attitude/attitude', PoseStamped, queue_size=10)
-            self.pub_thr = rospy.Publisher('/uav2/mavros/setpoint_attitude/att_throttle', Float64, queue_size=10)
-            rospy.Subscriber("/uav2/mavros/local_position/pose", PoseStamped, local_position_callback_2)
-            self.des_x = 1
-            self.des_y = 1
-            self.des_z = 3
-
-        elif idx_uav == 3:
-            self.arm  = rospy.ServiceProxy('/uav3/mavros/cmd/arming', CommandBool)
-            self.mode = rospy.ServiceProxy('/uav3/mavros/set_mode', SetMode)
-            self.pub_att = rospy.Publisher('/uav3/mavros/setpoint_attitude/attitude', PoseStamped, queue_size=10)
-            self.pub_thr = rospy.Publisher('/uav3/mavros/setpoint_attitude/att_throttle', Float64, queue_size=10)
-            rospy.Subscriber("/uav3/mavros/local_position/pose", PoseStamped, local_position_callback_3)
-            self.des_x = 1
-            self.des_y = -1
-            self.des_z = 3
+            self.des_z = 0
 
         self.roll_cmd = 0
         self.pitch_cmd = 0
@@ -83,80 +87,37 @@ class Data_storage(object):
         self.throttle_cmd = 0
 
         self.state = PoseStamped()
-        self.vel_x = 0
-        self.vel_y = 0
-        self.vel_z = 0
 
 # define agent (global variable)
 agent1 = Data_storage(idx_uav=1)
-agent2 = Data_storage(idx_uav=2)
-agent3 = Data_storage(idx_uav=3)
 
 class PX4_GUI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.ui = uic.loadUi("gui_3_quad_formation_ctrl.ui", self)
+        self.ui = uic.loadUi("gui_1_quad.ui", self)
         self.ui.show()
 
-        self.srv_reset = g_set_state = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+        self.srv_reset = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+        rospy.Subscriber("/iris_cam_1/image_raw", Image, camera_callback_1)
 
         agent1.OT = Offboard_thread(idx_uav=1)
-        agent2.OT = Offboard_thread(idx_uav=2)
-        agent3.OT = Offboard_thread(idx_uav=3)
 
         self.slider_roll_1 = self.horizontalSlider_roll_1
         self.slider_pitch_1 = self.verticalSlider_pitch_1
         self.slider_yaw_1 = self.horizontalSlider_yaw_1
         self.slider_throttle_1 = self.verticalSlider_throttle_1
 
-        self.slider_roll_2 = self.horizontalSlider_roll_2
-        self.slider_pitch_2 = self.verticalSlider_pitch_2
-        self.slider_yaw_2 = self.horizontalSlider_yaw_2
-        self.slider_throttle_2 = self.verticalSlider_throttle_2
-
-        self.slider_roll_3 = self.horizontalSlider_roll_3
-        self.slider_pitch_3 = self.verticalSlider_pitch_3
-        self.slider_yaw_3 = self.horizontalSlider_yaw_3
-        self.slider_throttle_3 = self.verticalSlider_throttle_3
-
         self.slider_des_x_1 = self.horizontalSlider_des_x_1
         self.slider_des_y_1 = self.horizontalSlider_des_y_1
         self.slider_des_z_1 = self.horizontalSlider_des_z_1
-
-        self.slider_des_x_2 = self.horizontalSlider_des_x_2
-        self.slider_des_y_2 = self.horizontalSlider_des_y_2
-        self.slider_des_z_2 = self.horizontalSlider_des_z_2
-
-        self.slider_des_x_3 = self.horizontalSlider_des_x_3
-        self.slider_des_y_3 = self.horizontalSlider_des_y_3
-        self.slider_des_z_3 = self.horizontalSlider_des_z_3
 
         self.text_des_x_1 = self.plainTextEdit_des_x_1
         self.text_des_y_1 = self.plainTextEdit_des_y_1
         self.text_des_z_1 = self.plainTextEdit_des_z_1
 
-        self.text_des_x_2 = self.plainTextEdit_des_x_2
-        self.text_des_y_2 = self.plainTextEdit_des_y_2
-        self.text_des_z_2 = self.plainTextEdit_des_z_2
-
-        self.text_des_x_3 = self.plainTextEdit_des_x_3
-        self.text_des_y_3 = self.plainTextEdit_des_y_3
-        self.text_des_z_3 = self.plainTextEdit_des_z_3
-
         self.text_state_x_1 = self.plainTextEdit_state_x_1
         self.text_state_y_1 = self.plainTextEdit_state_y_1
         self.text_state_z_1 = self.plainTextEdit_state_z_1
-
-        self.text_state_x_2 = self.plainTextEdit_state_x_2
-        self.text_state_y_2 = self.plainTextEdit_state_y_2
-        self.text_state_z_2 = self.plainTextEdit_state_z_2
-
-        self.text_state_x_3 = self.plainTextEdit_state_x_3
-        self.text_state_y_3 = self.plainTextEdit_state_y_3
-        self.text_state_z_3 = self.plainTextEdit_state_z_3
-
-        self.slider_formation_heading = self.horizontalSlider_heading
-        self.slider_formation_velocity = self.horizontalSlider_velocity
 
         self.scene = QGraphicsScene()
 
@@ -184,42 +145,15 @@ class PX4_GUI(QtWidgets.QDialog):
         self.slider_yaw_1.setValue(agent1.yaw_cmd*100+50)
         self.slider_throttle_1.setValue(agent1.throttle_cmd*100+50)
 
-        self.slider_roll_2.setValue(agent2.roll_cmd*100+50)
-        self.slider_pitch_2.setValue(agent2.pitch_cmd*100+50)
-        self.slider_yaw_2.setValue(agent2.yaw_cmd*100+50)
-        self.slider_throttle_2.setValue(agent2.throttle_cmd*100+50)
-
-        self.slider_roll_3.setValue(agent2.roll_cmd*100+50)
-        self.slider_pitch_3.setValue(agent2.pitch_cmd*100+50)
-        self.slider_yaw_3.setValue(agent2.yaw_cmd*100+50)
-        self.slider_throttle_3.setValue(agent2.throttle_cmd*100+50)
 
         self.text_des_x_1.setPlainText(str("{0:.2f}".format(agent1.des_x)))
         self.text_des_y_1.setPlainText(str("{0:.2f}".format(agent1.des_y)))
         self.text_des_z_1.setPlainText(str("{0:.2f}".format(agent1.des_z)))
 
-        self.text_des_x_2.setPlainText(str("{0:.2f}".format(agent2.des_x)))
-        self.text_des_y_2.setPlainText(str("{0:.2f}".format(agent2.des_y)))
-        self.text_des_z_2.setPlainText(str("{0:.2f}".format(agent2.des_z)))
-
-        self.text_des_x_3.setPlainText(str("{0:.2f}".format(agent3.des_x)))
-        self.text_des_y_3.setPlainText(str("{0:.2f}".format(agent3.des_y)))
-        self.text_des_z_3.setPlainText(str("{0:.2f}".format(agent3.des_z)))
 
         self.text_state_x_1.setPlainText(str("{0:.2f}".format(agent1.state.pose.position.x)))
         self.text_state_y_1.setPlainText(str("{0:.2f}".format(agent1.state.pose.position.y)))
         self.text_state_z_1.setPlainText(str("{0:.2f}".format(agent1.state.pose.position.z)))
-
-        self.text_state_x_2.setPlainText(str("{0:.2f}".format(agent2.state.pose.position.x)))
-        self.text_state_y_2.setPlainText(str("{0:.2f}".format(agent2.state.pose.position.y)))
-        self.text_state_z_2.setPlainText(str("{0:.2f}".format(agent2.state.pose.position.z)))
-
-        self.text_state_x_3.setPlainText(str("{0:.2f}".format(agent3.state.pose.position.x)))
-        self.text_state_y_3.setPlainText(str("{0:.2f}".format(agent3.state.pose.position.y)))
-        self.text_state_z_3.setPlainText(str("{0:.2f}".format(agent3.state.pose.position.z)))
-
-        self.plainTextEdit_formation_heading.setPlainText(str("{0:.2f}".format(agent1.formation_heading)))
-        self.plainTextEdit_formation_velocity.setPlainText(str("{0:.2f}".format(agent1.formation_velocity)))
 
         # self.tableWidget.setItem(5, 0, QtWidgets.QTableWidgetItem(str(["{0:.2f}".format(agent1.state.pose.position.x), "{0:.2f}".format(agent1.state.pose.position.y), "{0:.2f}".format(agent1.state.pose.position.z)])))
 
@@ -251,8 +185,8 @@ class PX4_GUI(QtWidgets.QDialog):
         # check = self.mode(custom_mode="STABILIZED")
         check = agent1.mode(custom_mode='MANUAL')
 
-        if check.success == True:
-            self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot5(self): # click offboard thread on
@@ -307,272 +241,27 @@ class PX4_GUI(QtWidgets.QDialog):
         self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
         self.waypoint_run=1
 
-    ### UAV_2
-    @pyqtSlot()
-    def slot21(self):  # pushButton_arm
-        self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
-        agent2.arm(True)
-
-    @pyqtSlot()
-    def slot22(self): # pushButton_disarm
-        self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
-        agent2.arm(False)
-
-    @pyqtSlot()
-    def slot23(self): # click offboard radio button
-        # !! should check there is periodic ctrl command
-        check = agent2.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
-
-    @pyqtSlot()
-    def slot24(self): # click stabilize radio button
-        # check = self.mode(custom_mode="STABILIZED")
-        check = agent2.mode(custom_mode='MANUAL')
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
-
-    @pyqtSlot() ##
-    def slot25(self): # click offboard thread on
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent2.OT.start()
-
-    @pyqtSlot() ##
-    def slot26(self):  # click offboard thread off
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
-        agent2.OT.myExit()
-
-    @pyqtSlot() ##
-    def slot27(self):  # click offboard thread suspend
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
-        agent2.OT.mySuspend()
-
-    @pyqtSlot() ##
-    def slot28(self):  # click offboard thread resume
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent2.OT.myResume()
-
-    @pyqtSlot()
-    def slot29(self): # click offboard input as joystick
-        self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
-        self.ctrl_type = 'joystick'
-
-    @pyqtSlot()
-    def slot30(self): # click offboard input as autonomous
-        self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
-        self.ctrl_type = 'auto'
-        print(self.tableWidget.item(2,0).text())
-        print(self.tableWidget.item(2,0).text() == 'ff')
-
-    @pyqtSlot()
-    def slot31(self): # horizontal slider(desired pos (x))
-        agent2.des_x = self.slider_des_x_2.value()
-
-    @pyqtSlot()
-    def slot32(self): # horizontal slider(desired pos (y))
-        agent2.des_y = self.slider_des_y_2.value()
-
-    @pyqtSlot()
-    def slot33(self): # horizontal slider(desired pos (z))
-        agent2.des_z = self.slider_des_z_2.value()
-
-    @pyqtSlot()
-    def slot34(self): # run waypoint flight (set waypoint trajectory)
-        self.traj = traj_gen()
-        self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
-        self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
-        self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
-        self.waypoint_run=1
-
-    ### UAV_3
-    @pyqtSlot()
-    def slot41(self):  # pushButton_arm
-        self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
-        agent3.arm(True)
-
-    @pyqtSlot()
-    def slot42(self): # pushButton_disarm
-        self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
-        agent3.arm(False)
-
-    @pyqtSlot()
-    def slot43(self): # click offboard radio button
-        # !! should check there is periodic ctrl command
-        check = agent3.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
-
-    @pyqtSlot()
-    def slot44(self): # click stabilize radio button
-        # check = self.mode(custom_mode = "STABILIZED")
-        check = agent3.mode(custom_mode = 'MANUAL')
-        if check.success == True:
-            self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
-
-    @pyqtSlot() ##
-    def slot45(self): # click offboard thread on
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent3.OT.start()
-
-    @pyqtSlot() ##
-    def slot46(self):  # click offboard thread off
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
-        agent3.OT.myExit()
-
-    @pyqtSlot() ##
-    def slot47(self):  # click offboard thread suspend
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
-        agent3.OT.mySuspend()
-
-    @pyqtSlot() ##
-    def slot48(self):  # click offboard thread resume
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent3.OT.myResume()
-
-    @pyqtSlot()
-    def slot49(self): # click offboard input as joystick
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
-        self.ctrl_type = 'joystick'
-
-    @pyqtSlot()
-    def slot50(self): # click offboard input as autonomous
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
-        self.ctrl_type = 'auto'
-        print(self.tableWidget.item(2,0).text())
-        print(self.tableWidget.item(2,0).text() == 'ff')
-
-    @pyqtSlot()
-    def slot51(self): # horizontal slider(desired pos (x))
-        agent3.des_x = self.slider_des_x_3.value()
-
-    @pyqtSlot()
-    def slot52(self): # horizontal slider(desired pos (y))
-        agent3.des_y = self.slider_des_y_3.value()
-
-    @pyqtSlot()
-    def slot53(self): # horizontal slider(desired pos (z))
-        agent3.des_z = self.slider_des_z_3.value()
-
-    @pyqtSlot()
-    def slot54(self): # run waypoint flight (set waypoint trajectory)
-        self.traj = traj_gen()
-        self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
-        self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
-        self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
-        self.waypoint_run=1
-
-    ### all UAVs
-    @pyqtSlot()
-    def slot501(self):  # pushButton_arm
-        self.slot1()
-        self.slot21()
-        self.slot41()
-
-    @pyqtSlot()
-    def slot502(self): # pushButton_disarm
-        self.slot2()
-        self.slot22()
-        self.slot42()
-
-    @pyqtSlot()
-    def slot503(self): # click offboard radio button
-        self.slot3()
-        self.slot23()
-        self.slot43()
-
-    @pyqtSlot()
-    def slot504(self): # click stabilize radio button
-        self.slot4()
-        self.slot24()
-        self.slot44()
-
-    @pyqtSlot() ##
-    def slot505(self): # click offboard thread on
-        self.slot5()
-        self.slot25()
-        self.slot45()
-
-    @pyqtSlot() ##
-    def slot506(self):  # click offboard thread off
-        self.slot6()
-        self.slot26()
-        self.slot46()
-
-    @pyqtSlot() ##
-    def slot507(self):  # click offboard thread suspend
-        self.slot7()
-        self.slot27()
-        self.slot47()
-
-    @pyqtSlot() ##
-    def slot508(self):  # click offboard thread resume
-        self.slot8()
-        self.slot28()
-        self.slot48()
-
-    @pyqtSlot()
-    def slot509(self): # click offboard input as joystick
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
-        self.ctrl_type = 'joystick'
-
-    @pyqtSlot()
-    def slot510(self):  # horizontal slider(formation heading)
-        agent1.formation_heading = self.slider_formation_heading.value()
-
-    @pyqtSlot()
-    def slot511(self):  # horizontal slider(formation velocity)
-        agent1.formation_velocity = self.slider_formation_velocity.value()
-
-
-    @pyqtSlot()
-    def slot50(self): # click offboard input as autonomous
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
-        self.ctrl_type = 'auto'
-        print(self.tableWidget.item(2,0).text())
-        print(self.tableWidget.item(2,0).text() == 'ff')
-
-    @pyqtSlot()
-    def slot51(self): # horizontal slider(desired pos (x))
-        agent3.des_x = self.slider_des_x_3.value()
-
-    @pyqtSlot()
-    def slot52(self): # horizontal slider(desired pos (y))
-        agent3.des_y = self.slider_des_y_3.value()
-
-    @pyqtSlot()
-    def slot53(self): # horizontal slider(desired pos (z))
-        agent3.des_z = self.slider_des_z_3.value()
-
-    @pyqtSlot()
-    def slot54(self): # run waypoint flight (set waypoint trajectory)
-        self.traj = traj_gen()
-        self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
-        self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
-        self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
-        self.waypoint_run=1
-
-
     # reset all
     @pyqtSlot()
     def slot19(self): # reset simulation
         # before reset, set all the desired pos/command to 0
-        agent1.des_x = 0
-        agent1.des_y = 0
-        agent1.des_z = 0
-        agent1.roll_cmd = 0
-        agent1.pitch_cmd = 0
-        agent1.yaw_cmd = 0
+        agent1.des_x        = 0
+        agent1.des_y        = 0
+        agent1.des_z        = 0
+        agent1.roll_cmd     = 0
+        agent1.pitch_cmd    = 0
+        agent1.yaw_cmd      = 0
         agent1.throttle_cmd = 0.066
 
-        pose = Pose()
-        pose.position.x = 0
-        pose.position.y = 0
-        pose.position.z = 2
-        q = quaternion_from_euler(0,0,0)
+        pose             = Pose()
+        pose.position.x  = 0
+        pose.position.y  = 0
+        pose.position.z  = 2
+        q                = quaternion_from_euler(0,0,0)
         pose.orientation = Quaternion(*q)
-        state = ModelState()
+        state            = ModelState()
         state.model_name = "iris"
-        state.pose = pose
+        state.pose       = pose
         self.srv_reset(state)
 
 class traj_gen():
@@ -638,13 +327,13 @@ class traj_gen():
         # derivative 1-6(6n-6 constraints)
         for i in range(n_p - 1):
             A[idx_row + 6 * i + 0, 8 * i:8 * (i + 1)] = [0, 1, 2, 3, 4, 5, 6, 7] / T[0, i]
-            A[idx_row + 6 * i + 0, 8 * (i + 1):8 * (i + 2)] = [0, -1, 0, 0, 0, 0, 0, 0] / T[0, i + 1]  # dev-1
+            A[idx_row + 6 * i + 0, 8 * (i + 1):8 * (i + 2)] = [0, -1, 0, 0, 0, 0, 0, 0] / T[0, i + 1]         # dev-1
             A[idx_row + 6 * i + 1, 8 * i:8 * (i + 1)] = [0, 0, 2, 6, 12, 20, 30, 42] / T[0, i] ** 2
-            A[idx_row + 6 * i + 1, 8 * (i + 1):8 * (i + 2)] = [0, 0, -2, 0, 0, 0, 0, 0] / T[0, i + 1] ** 2  # dev-2
+            A[idx_row + 6 * i + 1, 8 * (i + 1):8 * (i + 2)] = [0, 0, -2, 0, 0, 0, 0, 0] / T[0, i + 1] ** 2    # dev-2
             A[idx_row + 6 * i + 2, 8 * i:8 * (i + 1)] = [0, 0, 0, 6, 24, 60, 120, 210] / T[0, i] ** 3
-            A[idx_row + 6 * i + 2, 8 * (i + 1):8 * (i + 2)] = [0, 0, 0, -6, 0, 0, 0, 0] / T[0, i + 1] ** 3  # dev-3
+            A[idx_row + 6 * i + 2, 8 * (i + 1):8 * (i + 2)] = [0, 0, 0, -6, 0, 0, 0, 0] / T[0, i + 1] ** 3    # dev-3
             A[idx_row + 6 * i + 3, 8 * i:8 * (i + 1)] = [0, 0, 0, 0, 24, 120, 360, 840] / T[0, i] ** 4
-            A[idx_row + 6 * i + 3, 8 * (i + 1):8 * (i + 2)] = [0, 0, 0, 0, -24, 0, 0, 0] / T[0, i + 1] ** 4  # dev-4
+            A[idx_row + 6 * i + 3, 8 * (i + 1):8 * (i + 2)] = [0, 0, 0, 0, -24, 0, 0, 0] / T[0, i + 1] ** 4   # dev-4
             A[idx_row + 6 * i + 4, 8 * i:8 * (i + 1)] = [0, 0, 0, 0, 0, 120, 720, 2520] / T[0, i] ** 5
             A[idx_row + 6 * i + 4, 8 * (i + 1):8 * (i + 2)] = [0, 0, 0, 0, 0, -120, 0, 0] / T[0, i + 1] ** 5  # dev-5
             A[idx_row + 6 * i + 5, 8 * i:8 * (i + 1)] = [0, 0, 0, 0, 0, 0, 720, 5040] / T[0, i] ** 6
@@ -710,6 +399,44 @@ class Offboard_thread(Thread):
 
     def myExit(self):
         self.__exit = True
+
+
+# class RCOverride_thread(Thread): # it doesn't work yet
+#     def __init__(self):
+#         Thread.__init__(self)
+#
+#         self.rate = rospy.Rate(20) # 20Hz
+#
+#         self.ctrl = rc_override()
+#
+#         self.__suspend = False
+#         self.__exit = False
+#         self.daemon = True
+#
+#     def run(self):
+#         while not rospy.is_shutdown():
+#             try:
+#                 if self.__suspend == True:
+#                     continue
+#                 self.ctrl.calc_cmd_rc()
+#                 self.ctrl.talk()
+#                 self.rate.sleep()
+#
+#                 ### Exit ###
+#                 if self.__exit:
+#                     break
+#
+#             except rospy.ROSInterruptException:
+#                 pass
+#
+#     def mySuspend(self):
+#         self.__suspend = True
+#
+#     def myResume(self):
+#         self.__suspend = False
+#
+#     def myExit(self):
+#         self.__exit = True
 
 class setpoint_att(object):
     def __init__(self):
@@ -784,10 +511,11 @@ class setpoint_att(object):
         return (self.cmd_att, self.cmd_thr)
 
     def calc_cmd_att_thr_auto(self, idx_uav): # offboard control autonomously (roll/pitch/yaw/throttle)
-        # -----------------------------------------------------------------
         t_prev = self.cmd_att.header.stamp.secs
         self.cmd_att.header.stamp.secs = rospy.get_time()
         t_now = self.cmd_att.header.stamp.secs
+
+
 
         dt = t_now - t_prev
         if dt == 0 :
@@ -797,10 +525,7 @@ class setpoint_att(object):
             agent = agent1
         elif idx_uav == 2:
             agent = agent2
-        elif idx_uav == 3:
-            agent = agent3
 
-        # -----------------------------------------------------------------
         self.des_x = agent.des_x  #
         self.des_y = agent.des_y  #
         self.des_z = agent.des_z  #
@@ -839,19 +564,6 @@ class setpoint_att(object):
         state_vy = (self.state_y - state_y_prev) / dt
         state_vz = (self.state_z - state_z_prev) / dt
 
-        if idx_uav == 1:
-            agent1.vel_x = state_vx
-            agent1.vel_y = state_vy
-            agent1.vel_z = state_vz
-        elif idx_uav == 2:
-            agent2.vel_x = state_vx
-            agent2.vel_y = state_vy
-            agent2.vel_z = state_vz
-        elif idx_uav == 3:
-            agent3.vel_x = state_vx
-            agent3.vel_y = state_vy
-            agent3.vel_z = state_vz
-
         err_x = self.des_x - self.state_x
         err_y = self.des_y - self.state_y
         err_z = self.des_z - self.state_z
@@ -860,64 +572,14 @@ class setpoint_att(object):
         err_vy = self.des_vy - state_vy
         err_vz = self.des_vz - state_vz
 
-        # -----------------------------------------------------------------
-        n = 3  # number of uavs
-        m = 2  # number of dimension
-
-        ## Graph Theory
-        # Adjacency Matrix
-        AdjM = np.ones((n, n)) - np.eye(n);
-
-        # Degree Matrix
-        DegM = (n - 1) * np.eye(n);
-
-        # Laplacian matrix
-        L = DegM - AdjM;
-
-        # gain
-        kap1 = 3
-        kap2 = 3
-        kap3 = 3
-
-        ## Measurement Matrix
-        Hx = np.concatenate((np.eye(m), 0 * np.eye(m)), axis=1)
-        Hv = np.concatenate((0 * np.eye(m), np.eye(m)), axis=1)
-        Hxv = np.concatenate((np.kron(np.eye(n), Hx), np.kron(np.eye(n), Hv)), axis=0)
-
-        V = agent1.formation_velocity
-        th = agent1.formation_heading * math.pi/180
-        Xd = np.array([0, 0, V * np.cos(th), V * np.sin(th),
-                       -3 * np.cos(math.pi/4 - th), 3 * np.sin(math.pi/4 - th), V * np.cos(th), V * np.sin(th),
-                       -3 * np.cos(math.pi/4 + th), - 3 * np.sin(math.pi/4 + th), V * np.cos(th), V * np.sin(th)])
-
-        X = np.array([agent1.state.pose.position.x, agent1.state.pose.position.y, agent1.vel_x, agent1.vel_y,
-                      agent2.state.pose.position.x, agent2.state.pose.position.y, agent2.vel_x, agent2.vel_y,
-                      agent3.state.pose.position.x, agent3.state.pose.position.y, agent3.vel_x, agent3.vel_y])
-
-        temp = np.concatenate((kap1 * L, kap2 * L + kap3 * np.eye(n)), axis=1)
-        U = np.dot(np.dot(-np.kron(temp, np.eye(m)), Hxv), np.transpose(X - Xd))
-
-        if idx_uav == 1:
-            acc_comm_x = U[0]
-            acc_comm_y = U[1]
-        elif idx_uav == 2:
-            acc_comm_x = U[2]
-            acc_comm_y = U[3]
-        elif idx_uav == 3:
-            acc_comm_x = U[4]
-            acc_comm_y = U[5]
-
-        # =================================================================
-
-        # acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
-        # acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
+        acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
+        acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
         acc_comm_z = self.des_az + self.Kv_z * err_vz + self.Kp_z * err_z
 
         u1 = self.m * (self.g + acc_comm_z)
 
         des_phi = 1/self.g * (acc_comm_x*math.sin(self.des_yaw) - acc_comm_y*math.cos(self.des_yaw))
         des_theta = 1/self.g * (acc_comm_x*math.cos(self.des_yaw) + acc_comm_y*math.sin(self.des_yaw))
-
 
         u_phi = self.Kp_phi*(des_phi-self.state_phi) + self.Kv_phi*(0-state_vphi)
         u_theta = self.Kp_theta*(des_theta-self.state_theta) + self.Kv_theta*(0-state_vtheta)
@@ -947,11 +609,6 @@ class setpoint_att(object):
             agent2.pitch_cmd = u_theta
             agent2.yaw_cmd = u_psi
             agent2.throttle_cmd = u1-0.5
-        elif idx_uav == 3:
-            agent3.roll_cmd = u_phi
-            agent3.pitch_cmd = u_theta
-            agent3.yaw_cmd = u_psi
-            agent3.throttle_cmd = u1-0.5
 
         return (self.cmd_att, self.cmd_thr)
 
@@ -964,9 +621,6 @@ class setpoint_att(object):
         elif idx_uav == 2:
             agent2.pub_att.publish(self.cmd_att)
             agent2.pub_thr.publish(self.cmd_thr)
-        elif idx_uav == 3:
-            agent3.pub_att.publish(self.cmd_att)
-            agent3.pub_thr.publish(self.cmd_thr)
         # rospy.loginfo("[cmd req] att : %s, %s, %s, %s", self.roll, self.pitch, self.yaw, self.throttle)
 
 
