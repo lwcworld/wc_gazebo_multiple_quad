@@ -98,8 +98,8 @@ class Data_storage(object):
             # rospy.Subscriber("/uav1/mavros/global_position/global", NavSatFix, local_position_callback_1)
             # rospy.Subscriber("/uav1/mavros/global_position/local", PoseWithCovarianceStamped, local_position_callback_1)
 
-            self.net = darknet.load_net("/home/lwc/darknet/cfg/yolo.cfg", "/home/lwc/darknet/yolo.weights", 0)
-            self.meta = darknet.load_meta("/home/lwc/darknet/cfg/coco.data")
+            self.net = darknet.load_net("/home/lwc/git/darknet/cfg/yolo.cfg", "/home/lwc/git/darknet/yolo.weights", 0)
+            self.meta = darknet.load_meta("/home/lwc/git/darknet/cfg/coco.data")
 
             self.des_x = 0
             self.des_y = 0
@@ -112,8 +112,8 @@ class Data_storage(object):
             self.pub_thr = rospy.Publisher('/uav2/mavros/setpoint_attitude/att_throttle', Float64, queue_size=10)
             rospy.Subscriber("/uav2/mavros/local_position/pose", PoseStamped, local_position_callback_2)
 
-            self.net = darknet.load_net("/home/lwc/darknet/cfg/yolo.cfg", "/home/lwc/darknet/yolo.weights", 0)
-            self.meta = darknet.load_meta("/home/lwc/darknet/cfg/coco.data")
+            self.net = darknet.load_net("/home/lwc/git/darknet/cfg/yolo.cfg", "/home/lwc/git/darknet/yolo.weights", 0)
+            self.meta = darknet.load_meta("/home/lwc/git/darknet/cfg/coco.data")
 
             self.des_x = 1
             self.des_y = 1
@@ -252,16 +252,16 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot3(self): # click offboard radio button
         # !! should check there is periodic ctrl command
         check = agent1.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+        # if check.success == True:
+        self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()
     def slot4(self): # click stabilize radio button
         # check = self.mode(custom_mode="STABILIZED")
         check = agent1.mode(custom_mode='MANUAL')
 
-        if check.success == True:
-            self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot5(self): # click offboard thread on
@@ -331,15 +331,15 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot23(self): # click offboard radio button
         # !! should check there is periodic ctrl command
         check = agent2.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+        # if check.success == True:
+        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()
     def slot24(self): # click stabilize radio button
         # check = self.mode(custom_mode="STABILIZED")
         check = agent2.mode(custom_mode='MANUAL')
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot25(self): # click offboard thread on
@@ -398,49 +398,41 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot501(self):  # pushButton_arm
         self.slot1()
         self.slot21()
-        self.slot41()
 
     @pyqtSlot()
     def slot502(self): # pushButton_disarm
         self.slot2()
         self.slot22()
-        self.slot42()
 
     @pyqtSlot()
     def slot503(self): # click offboard radio button
         self.slot3()
         self.slot23()
-        self.slot43()
 
     @pyqtSlot()
     def slot504(self): # click stabilize radio button
         self.slot4()
         self.slot24()
-        self.slot44()
 
     @pyqtSlot() ##
     def slot505(self): # click offboard thread on
         self.slot5()
         self.slot25()
-        self.slot45()
 
     @pyqtSlot() ##
     def slot506(self):  # click offboard thread off
         self.slot6()
         self.slot26()
-        self.slot46()
 
     @pyqtSlot() ##
     def slot507(self):  # click offboard thread suspend
         self.slot7()
         self.slot27()
-        self.slot47()
 
     @pyqtSlot() ##
     def slot508(self):  # click offboard thread resume
         self.slot8()
         self.slot28()
-        self.slot48()
 
     # reset all
     @pyqtSlot()

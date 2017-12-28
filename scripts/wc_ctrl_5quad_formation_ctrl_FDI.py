@@ -30,6 +30,17 @@ from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsPixmapItem
 from filterpy.kalman import UnscentedKalmanFilter as UKF
 from filterpy.kalman import sigma_points
 
+# plot
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, \
+    QPushButton
+from PyQt5.QtGui import QIcon
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
+import random
+
 def local_position_callback_1(msg):
     # print(msg)
     agent1.position = msg
@@ -156,6 +167,8 @@ class Data_agent(object):
         self.vel_y = 0
         self.vel_z = 0
 
+        self.manual = False
+
 class Data_FDI(object):
     def __init__(self):
         self.FDI_on = False
@@ -171,10 +184,17 @@ class Data_FDI(object):
         self.AdjM = np.ones((n, n)) - np.eye(n);
 
         # Degree Matrix
-        self.DegM = (n - 1) * np.eye(n);
+        self.DegM = (n - 1) * np.eye(n)
 
         # Laplacian matrix
-        self.L = self.DegM - self.AdjM;
+        self.L = self.DegM - self.AdjM
+
+        # hist of res
+        self.h_uav1 = []
+        self.h_uav2 = []
+        self.h_uav3 = []
+        self.h_uav4 = []
+        self.h_uav5 = []
 
     def get_sensor_data(self):
         GPS_Meas = np.array([agent1.position.pose.position.x, agent1.position.pose.position.y,
@@ -271,10 +291,11 @@ agent5 = Data_agent(idx_uav=5)
 
 FDI = Data_FDI()
 
+
 class PX4_GUI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.ui = uic.loadUi("gui_5_quad_formation_ctrl.ui", self)
+        self.ui = uic.loadUi("gui_5_quad_formation_ctrl_FDI.ui", self)
         self.ui.show()
 
         self.srv_reset = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
@@ -287,73 +308,76 @@ class PX4_GUI(QtWidgets.QDialog):
 
         FDI.OT = FDI_thread()
 
-
-
         self.slider_roll_1 = self.horizontalSlider_roll_1
         self.slider_pitch_1 = self.verticalSlider_pitch_1
         self.slider_yaw_1 = self.horizontalSlider_yaw_1
         self.slider_throttle_1 = self.verticalSlider_throttle_1
 
-        self.slider_roll_2 = self.horizontalSlider_roll_2
-        self.slider_pitch_2 = self.verticalSlider_pitch_2
-        self.slider_yaw_2 = self.horizontalSlider_yaw_2
-        self.slider_throttle_2 = self.verticalSlider_throttle_2
-
-        self.slider_roll_3 = self.horizontalSlider_roll_3
-        self.slider_pitch_3 = self.verticalSlider_pitch_3
-        self.slider_yaw_3 = self.horizontalSlider_yaw_3
-        self.slider_throttle_3 = self.verticalSlider_throttle_3
 
         self.slider_des_x_1 = self.horizontalSlider_des_x_1
         self.slider_des_y_1 = self.horizontalSlider_des_y_1
         self.slider_des_z_1 = self.horizontalSlider_des_z_1
 
-        self.slider_des_x_2 = self.horizontalSlider_des_x_2
-        self.slider_des_y_2 = self.horizontalSlider_des_y_2
-        self.slider_des_z_2 = self.horizontalSlider_des_z_2
-
-        self.slider_des_x_3 = self.horizontalSlider_des_x_3
-        self.slider_des_y_3 = self.horizontalSlider_des_y_3
-        self.slider_des_z_3 = self.horizontalSlider_des_z_3
-
         self.text_des_x_1 = self.plainTextEdit_des_x_1
         self.text_des_y_1 = self.plainTextEdit_des_y_1
         self.text_des_z_1 = self.plainTextEdit_des_z_1
 
-        self.text_des_x_2 = self.plainTextEdit_des_x_2
-        self.text_des_y_2 = self.plainTextEdit_des_y_2
-        self.text_des_z_2 = self.plainTextEdit_des_z_2
-
-        self.text_des_x_3 = self.plainTextEdit_des_x_3
-        self.text_des_y_3 = self.plainTextEdit_des_y_3
-        self.text_des_z_3 = self.plainTextEdit_des_z_3
 
         self.text_state_x_1 = self.plainTextEdit_state_x_1
         self.text_state_y_1 = self.plainTextEdit_state_y_1
         self.text_state_z_1 = self.plainTextEdit_state_z_1
 
-        self.text_state_x_2 = self.plainTextEdit_state_x_2
-        self.text_state_y_2 = self.plainTextEdit_state_y_2
-        self.text_state_z_2 = self.plainTextEdit_state_z_2
-
-        self.text_state_x_3 = self.plainTextEdit_state_x_3
-        self.text_state_y_3 = self.plainTextEdit_state_y_3
-        self.text_state_z_3 = self.plainTextEdit_state_z_3
-
         self.slider_formation_heading = self.horizontalSlider_heading
         self.slider_formation_velocity = self.horizontalSlider_velocity
 
-        self.scene = QGraphicsScene()
+        self.graphicsView_uav1 = self.graphicsView_1
+        self.graphicsView_uav2 = self.graphicsView_2
+        self.graphicsView_uav3 = self.graphicsView_3
+        self.graphicsView_uav4 = self.graphicsView_4
+        self.graphicsView_uav5 = self.graphicsView_5
+
+        self.scene_uav1 = QtWidgets.QGraphicsScene()
+        self.scene_uav2 = QtWidgets.QGraphicsScene()
+        self.scene_uav3 = QtWidgets.QGraphicsScene()
+        self.scene_uav4 = QtWidgets.QGraphicsScene()
+        self.scene_uav5 = QtWidgets.QGraphicsScene()
+
+        self.figure_uav1 = Figure()
+        self.figure_uav2 = Figure()
+        self.figure_uav3 = Figure()
+        self.figure_uav4 = Figure()
+        self.figure_uav5 = Figure()
+
+        self.canvas_uav1 = FigureCanvas(self.figure_uav1)
+        self.canvas_uav1.setGeometry(0, 0, 540, 100)
+        self.canvas_uav2 = FigureCanvas(self.figure_uav2)
+        self.canvas_uav3 = FigureCanvas(self.figure_uav3)
+        self.canvas_uav4 = FigureCanvas(self.figure_uav4)
+        self.canvas_uav5 = FigureCanvas(self.figure_uav5)
+
+        self.canvas_uav1.setGeometry(0, 0, 540, 100)
+        self.canvas_uav2.setGeometry(0, 0, 540, 100)
+        self.canvas_uav3.setGeometry(0, 0, 540, 100)
+        self.canvas_uav4.setGeometry(0, 0, 540, 100)
+        self.canvas_uav5.setGeometry(0, 0, 540, 100)
+
+
+
+        axes = self.figure_uav1.gca()
+        axes.plot(FDI.h_uav1)
+        self.scene_uav1.addWidget(self.canvas_uav1)
 
         self.waypoint_run = 0
 
         # timer for periodic update of GUI
         self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(100)  # Throw event timeout with an interval of 1000 milliseconds
+        self.timer.setInterval(50)  # Throw event timeout with an interval of 1000 milliseconds
         self.timer.timeout.connect(self.update_ctrl)  # each time timer counts a second, call self.blink
         self.color_flag = True
 
         self.timer_start()
+
+        self.count_update = 1
 
     def timer_start(self):
         self.timer.start()
@@ -366,77 +390,135 @@ class PX4_GUI(QtWidgets.QDialog):
 
         agent1.formation_heading = agent1.formation_heading + 0.1*self.slider_formation_heading.value()
 
-        self.slider_roll_1.setValue(agent1.roll_cmd*100+50)
-        self.slider_pitch_1.setValue(agent1.pitch_cmd*100+50)
-        self.slider_yaw_1.setValue(agent1.yaw_cmd*100+50)
-        self.slider_throttle_1.setValue(agent1.throttle_cmd*100+50)
+        self.slider_roll_1.setValue(agent2.roll_cmd*100+50)
+        self.slider_pitch_1.setValue(agent2.pitch_cmd*100+50)
+        self.slider_yaw_1.setValue(agent2.yaw_cmd*100+50)
+        self.slider_throttle_1.setValue(agent2.throttle_cmd*100+50)
 
-        self.slider_roll_2.setValue(agent2.roll_cmd*100+50)
-        self.slider_pitch_2.setValue(agent2.pitch_cmd*100+50)
-        self.slider_yaw_2.setValue(agent2.yaw_cmd*100+50)
-        self.slider_throttle_2.setValue(agent2.throttle_cmd*100+50)
+        self.text_des_x_1.setPlainText(str("{0:.2f}".format(agent2.des_x)))
+        self.text_des_y_1.setPlainText(str("{0:.2f}".format(agent2.des_y)))
+        self.text_des_z_1.setPlainText(str("{0:.2f}".format(agent2.des_z)))
 
-        self.slider_roll_3.setValue(agent3.roll_cmd*100+50)
-        self.slider_pitch_3.setValue(agent3.pitch_cmd*100+50)
-        self.slider_yaw_3.setValue(agent3.yaw_cmd*100+50)
-        self.slider_throttle_3.setValue(agent3.throttle_cmd*100+50)
-
-        self.text_des_x_1.setPlainText(str("{0:.2f}".format(agent1.des_x)))
-        self.text_des_y_1.setPlainText(str("{0:.2f}".format(agent1.des_y)))
-        self.text_des_z_1.setPlainText(str("{0:.2f}".format(agent1.des_z)))
-
-        self.text_des_x_2.setPlainText(str("{0:.2f}".format(agent2.des_x)))
-        self.text_des_y_2.setPlainText(str("{0:.2f}".format(agent2.des_y)))
-        self.text_des_z_2.setPlainText(str("{0:.2f}".format(agent2.des_z)))
-
-        self.text_des_x_3.setPlainText(str("{0:.2f}".format(agent3.des_x)))
-        self.text_des_y_3.setPlainText(str("{0:.2f}".format(agent3.des_y)))
-        self.text_des_z_3.setPlainText(str("{0:.2f}".format(agent3.des_z)))
-
-        self.text_state_x_1.setPlainText(str("{0:.2f}".format(agent1.position.pose.position.x)))
-        self.text_state_y_1.setPlainText(str("{0:.2f}".format(agent1.position.pose.position.y)))
-        self.text_state_z_1.setPlainText(str("{0:.2f}".format(agent1.position.pose.position.z)))
-
-        self.text_state_x_2.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.x)))
-        self.text_state_y_2.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.y)))
-        self.text_state_z_2.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.z)))
-
-        self.text_state_x_3.setPlainText(str("{0:.2f}".format(agent3.position.pose.position.x)))
-        self.text_state_y_3.setPlainText(str("{0:.2f}".format(agent3.position.pose.position.y)))
-        self.text_state_z_3.setPlainText(str("{0:.2f}".format(agent3.position.pose.position.z)))
+        self.text_state_x_1.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.x)))
+        self.text_state_y_1.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.y)))
+        self.text_state_z_1.setPlainText(str("{0:.2f}".format(agent2.position.pose.position.z)))
 
         self.plainTextEdit_formation_heading.setPlainText(str("{0:.2f}".format(self.slider_formation_heading.value())))
         self.plainTextEdit_formation_velocity.setPlainText(str("{0:.2f}".format(agent1.formation_velocity)))
 
         # self.tableWidget.setItem(5, 0, QtWidgets.QTableWidgetItem(str(["{0:.2f}".format(agent1.position.pose.position.x), "{0:.2f}".format(agent1.position.pose.position.y), "{0:.2f}".format(agent1.position.pose.position.z)])))
 
-        pixmap = QtGui.QPixmap()
-        pixmap.load('catkin_ws/src/wc_gazebo/scripts/camera_image.jpeg')
-        item = QGraphicsPixmapItem(pixmap)
-        self.scene.addItem(item)
+        # pixmap = QtGui.QPixmap()
+        # pixmap.load('catkin_ws/src/wc_gazebo/scripts/camera_image.jpeg')
+        # item = QGraphicsPixmapItem(pixmap)
+        # self.scene.addItem(item)
+
+
+        # figure = Figure()
+        # axes = figure.gca()
+        # axes.plot(FDI.h_uav1)
+        # canvas_uav1 = FigureCanvas(figure)
+        # canvas_uav1.setGeometry(0, 0, 540, 100)
+        # axes.plot(FDI.h_uav2)
+        # canvas_uav2 = FigureCanvas(figure)
+        # canvas_uav2.setGeometry(0, 0, 540, 100)
+        # axes.plot(FDI.h_uav3)
+        # canvas_uav3 = FigureCanvas(figure)
+        # canvas_uav3.setGeometry(0, 0, 540, 100)
+        # axes.plot(FDI.h_uav4)
+        # canvas_uav4 = FigureCanvas(figure)
+        # canvas_uav4.setGeometry(0, 0, 540, 100)
+        # axes.plot(FDI.h_uav5)
+        # canvas_uav5 = FigureCanvas(figure)
+        # canvas_uav5.setGeometry(0, 0, 540, 100)
+        # self.scene_uav1.addWidget(canvas_uav1)
+        # self.scene_uav1.addWidget(canvas_uav2)
+        # self.scene_uav1.addWidget(canvas_uav3)
+        # self.scene_uav1.addWidget(canvas_uav4)
+        # self.scene_uav1.addWidget(canvas_uav5)
+        #
+        # self.graphicsView_uav1.setScene(self.scene_uav1)
+
+        if self.count_update == 1:
+            figure = Figure()
+            axes   = figure.gca()
+            axes.plot(FDI.h_uav1)
+            self.canvas_uav1 = FigureCanvas(figure)
+            self.canvas_uav1.setGeometry(0, 0, 540, 100)
+            self.scene_uav1.addWidget(self.canvas_uav1)
+            self.graphicsView_uav1.setScene(self.scene_uav1)
+
+            self.count_update = self.count_update + 1
+
+        elif self.count_update == 3:
+            figure = Figure()
+            axes = figure.gca()
+            axes.plot(FDI.h_uav2)
+            canvas = FigureCanvas(figure)
+            canvas.setGeometry(0, 0, 540, 100)
+            self.scene_uav2.addWidget(canvas)
+            self.graphicsView_uav2.setScene(self.scene_uav2)
+
+            self.count_update = self.count_update + 1
+
+        elif self.count_update == 5:
+            figure = Figure()
+            axes = figure.gca()
+            axes.plot(FDI.h_uav3)
+            canvas = FigureCanvas(figure)
+            canvas.setGeometry(0, 0, 540, 100)
+            self.scene_uav3.addWidget(canvas)
+            self.graphicsView_uav3.setScene(self.scene_uav3)
+
+            self.count_update = self.count_update + 1
+
+        elif self.count_update == 7:
+            figure = Figure()
+            axes = figure.gca()
+            axes.plot(FDI.h_uav4)
+            canvas = FigureCanvas(figure)
+            canvas.setGeometry(0, 0, 540, 100)
+            self.scene_uav4.addWidget(canvas)
+            self.graphicsView_uav4.setScene(self.scene_uav4)
+
+            self.count_update = self.count_update + 1
+
+        elif self.count_update == 9:
+            figure = Figure()
+            axes = figure.gca()
+            axes.plot(FDI.h_uav5)
+            canvas = FigureCanvas(figure)
+            canvas.setGeometry(0, 0, 540, 100)
+            self.scene_uav5.addWidget(canvas)
+            self.graphicsView_uav5.setScene(self.scene_uav5)
+
+            self.count_update = 1
+
+        else:
+            self.count_update = self.count_update + 1
 
     # UAV_1
     @pyqtSlot()
     def slot1(self):  # pushButton_arm
         self.tableWidget.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
-        agent1.arm(True)
+        agent2.arm(True)
 
     @pyqtSlot()
     def slot2(self): # pushButton_disarm
         self.tableWidget.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
-        agent1.arm(False)
+        agent2.arm(False)
 
     @pyqtSlot()
     def slot3(self): # click offboard radio button
         # !! should check there is periodic ctrl command
-        check = agent1.mode(custom_mode="OFFBOARD")
+        check = agent2.mode(custom_mode="OFFBOARD")
         # if check.success == True:
         self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()
     def slot4(self): # click stabilize radio button
         # check = self.mode(custom_mode="STABILIZED")
-        check = agent1.mode(custom_mode='MANUAL')
+        check = agent2.mode(custom_mode='MANUAL')
 
         # if check.success == True:
         self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
@@ -444,23 +526,23 @@ class PX4_GUI(QtWidgets.QDialog):
     @pyqtSlot() ##
     def slot5(self): # click offboard thread on
         self.tableWidget.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent1.OT.start()
+        agent2.OT.start()
 
     @pyqtSlot() ##
     def slot6(self):  # click offboard thread off
         self.tableWidget.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
-        agent1.OT.myExit()
+        agent2.OT.myExit()
 
     @pyqtSlot() ##
     def slot7(self):  # click offboard thread suspend
         self.tableWidget.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
-        agent1.OT.mySuspend()
+        agent2.OT.mySuspend()
 
     @pyqtSlot() ##
     def slot8(self):  # click offboard thread resume
         self.tableWidget.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
         # OT = Offboard_thread()
-        agent1.OT.myResume()
+        agent2.OT.myResume()
 
     @pyqtSlot()
     def slot13(self): # click offboard input as joystick
@@ -476,15 +558,15 @@ class PX4_GUI(QtWidgets.QDialog):
 
     @pyqtSlot()
     def slot15(self): # horizontal slider(desired pos (x))
-        agent1.des_x = self.slider_des_x_1.value()
+        agent2.des_x = self.slider_des_x_1.value()
 
     @pyqtSlot()
     def slot16(self): # horizontal slider(desired pos (y))
-        agent1.des_y = self.slider_des_y_1.value()
+        agent2.des_y = self.slider_des_y_1.value()
 
     @pyqtSlot()
     def slot17(self): # horizontal slider(desired pos (z))
-        agent1.des_z = self.slider_des_z_1.value()
+        agent2.des_z = self.slider_des_z_1.value()
 
     @pyqtSlot()
     def slot18(self): # run waypoint flight (set waypoint trajectory)
@@ -494,160 +576,169 @@ class PX4_GUI(QtWidgets.QDialog):
         self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
         self.waypoint_run=1
 
-    ### UAV_2
     @pyqtSlot()
-    def slot21(self):  # pushButton_arm
-        self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
-        agent2.arm(True)
+    def slot20(self): # manual checkbox toggled
+        if self.checkBox_manual.isChecked()==True:
+            agent2.manual = True
+        else:
+            agent2.manual = False
 
-    @pyqtSlot()
-    def slot22(self): # pushButton_disarm
-        self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
-        agent2.arm(False)
 
-    @pyqtSlot()
-    def slot23(self): # click offboard radio button
-        # !! should check there is periodic ctrl command
-        check = agent2.mode(custom_mode="OFFBOARD")
-        # if check.success == True:
-        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
-    @pyqtSlot()
-    def slot24(self): # click stabilize radio button
-        # check = self.mode(custom_mode="STABILIZED")
-        check = agent2.mode(custom_mode='MANUAL')
-        # if check.success == True:
-        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
-
-    @pyqtSlot() ##
-    def slot25(self): # click offboard thread on
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent2.OT.start()
-
-    @pyqtSlot() ##
-    def slot26(self):  # click offboard thread off
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
-        agent2.OT.myExit()
-
-    @pyqtSlot() ##
-    def slot27(self):  # click offboard thread suspend
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
-        agent2.OT.mySuspend()
-
-    @pyqtSlot() ##
-    def slot28(self):  # click offboard thread resume
-        self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent2.OT.myResume()
-
-    @pyqtSlot()
-    def slot29(self): # click offboard input as joystick
-        self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
-        self.ctrl_type = 'joystick'
-
-    @pyqtSlot()
-    def slot30(self): # click offboard input as autonomous
-        self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
-        self.ctrl_type = 'auto'
-        print(self.tableWidget.item(2,0).text())
-        print(self.tableWidget.item(2,0).text() == 'ff')
-
-    @pyqtSlot()
-    def slot31(self): # horizontal slider(desired pos (x))
-        agent2.des_x = self.slider_des_x_2.value()
-
-    @pyqtSlot()
-    def slot32(self): # horizontal slider(desired pos (y))
-        agent2.des_y = self.slider_des_y_2.value()
-
-    @pyqtSlot()
-    def slot33(self): # horizontal slider(desired pos (z))
-        agent2.des_z = self.slider_des_z_2.value()
-
-    @pyqtSlot()
-    def slot34(self): # run waypoint flight (set waypoint trajectory)
-        self.traj = traj_gen()
-        self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
-        self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
-        self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
-        self.waypoint_run=1
-
-    ### UAV_3
-    @pyqtSlot()
-    def slot41(self):  # pushButton_arm
-        self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
-        agent3.arm(True)
-        agent5.arm(True)
-
-    @pyqtSlot()
-    def slot42(self): # pushButton_disarm
-        self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
-        agent3.arm(False)
-
-    @pyqtSlot()
-    def slot43(self): # click offboard radio button
-        # !! should check there is periodic ctrl command
-        check = agent3.mode(custom_mode="OFFBOARD")
-        # if check.success == True:
-        self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
-
-    @pyqtSlot()
-    def slot44(self): # click stabilize radio button
-        # check = self.mode(custom_mode = "STABILIZED")
-        check = agent3.mode(custom_mode = 'MANUAL')
-        # if check.success == True:
-        self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
-
-    @pyqtSlot() ##
-    def slot45(self): # click offboard thread on
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent3.OT.start()
-
-    @pyqtSlot() ##
-    def slot46(self):  # click offboard thread off
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
-        agent3.OT.myExit()
-
-    @pyqtSlot() ##
-    def slot47(self):  # click offboard thread suspend
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
-        agent3.OT.mySuspend()
-
-    @pyqtSlot() ##
-    def slot48(self):  # click offboard thread resume
-        self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
-        agent3.OT.myResume()
-
-    @pyqtSlot()
-    def slot49(self): # click offboard input as joystick
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
-        self.ctrl_type = 'joystick'
-
-    @pyqtSlot()
-    def slot50(self): # click offboard input as autonomous
-        self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
-        self.ctrl_type = 'auto'
-        print(self.tableWidget.item(2,0).text())
-        print(self.tableWidget.item(2,0).text() == 'ff')
-
-    @pyqtSlot()
-    def slot51(self): # horizontal slider(desired pos (x))
-        agent3.des_x = self.slider_des_x_3.value()
-
-    @pyqtSlot()
-    def slot52(self): # horizontal slider(desired pos (y))
-        agent3.des_y = self.slider_des_y_3.value()
-
-    @pyqtSlot()
-    def slot53(self): # horizontal slider(desired pos (z))
-        agent3.des_z = self.slider_des_z_3.value()
-
-    @pyqtSlot()
-    def slot54(self): # run waypoint flight (set waypoint trajectory)
-        self.traj = traj_gen()
-        self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
-        self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
-        self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
-        self.waypoint_run=1
+    # ### UAV_2
+    # @pyqtSlot()
+    # def slot21(self):  # pushButton_arm
+    #     self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
+    #     agent2.arm(True)
+    #
+    # @pyqtSlot()
+    # def slot22(self): # pushButton_disarm
+    #     self.tableWidget_2.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
+    #     agent2.arm(False)
+    #
+    # @pyqtSlot()
+    # def slot23(self): # click offboard radio button
+    #     # !! should check there is periodic ctrl command
+    #     check = agent2.mode(custom_mode="OFFBOARD")
+    #     # if check.success == True:
+    #     self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+    #
+    # @pyqtSlot()
+    # def slot24(self): # click stabilize radio button
+    #     # check = self.mode(custom_mode="STABILIZED")
+    #     check = agent2.mode(custom_mode='MANUAL')
+    #     # if check.success == True:
+    #     self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+    #
+    # @pyqtSlot() ##
+    # def slot25(self): # click offboard thread on
+    #     self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
+    #     agent2.OT.start()
+    #
+    # @pyqtSlot() ##
+    # def slot26(self):  # click offboard thread off
+    #     self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
+    #     agent2.OT.myExit()
+    #
+    # @pyqtSlot() ##
+    # def slot27(self):  # click offboard thread suspend
+    #     self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
+    #     agent2.OT.mySuspend()
+    #
+    # @pyqtSlot() ##
+    # def slot28(self):  # click offboard thread resume
+    #     self.tableWidget_2.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
+    #     agent2.OT.myResume()
+    #
+    # @pyqtSlot()
+    # def slot29(self): # click offboard input as joystick
+    #     self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
+    #     self.ctrl_type = 'joystick'
+    #
+    # @pyqtSlot()
+    # def slot30(self): # click offboard input as autonomous
+    #     self.tableWidget_2.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
+    #     self.ctrl_type = 'auto'
+    #     print(self.tableWidget.item(2,0).text())
+    #     print(self.tableWidget.item(2,0).text() == 'ff')
+    #
+    # @pyqtSlot()
+    # def slot31(self): # horizontal slider(desired pos (x))
+    #     agent2.des_x = self.slider_des_x_2.value()
+    #
+    # @pyqtSlot()
+    # def slot32(self): # horizontal slider(desired pos (y))
+    #     agent2.des_y = self.slider_des_y_2.value()
+    #
+    # @pyqtSlot()
+    # def slot33(self): # horizontal slider(desired pos (z))
+    #     agent2.des_z = self.slider_des_z_2.value()
+    #
+    # @pyqtSlot()
+    # def slot34(self): # run waypoint flight (set waypoint trajectory)
+    #     self.traj = traj_gen()
+    #     self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
+    #     self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
+    #     self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
+    #     self.waypoint_run=1
+    #
+    # ### UAV_3
+    # @pyqtSlot()
+    # def slot41(self):  # pushButton_arm
+    #     self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("armed"))
+    #     agent3.arm(True)
+    #     agent5.arm(True)
+    #
+    # @pyqtSlot()
+    # def slot42(self): # pushButton_disarm
+    #     self.tableWidget_3.setItem(0, 0, QtWidgets.QTableWidgetItem("disarmed"))
+    #     agent3.arm(False)
+    #
+    # @pyqtSlot()
+    # def slot43(self): # click offboard radio button
+    #     # !! should check there is periodic ctrl command
+    #     check = agent3.mode(custom_mode="OFFBOARD")
+    #     # if check.success == True:
+    #     self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+    #
+    # @pyqtSlot()
+    # def slot44(self): # click stabilize radio button
+    #     # check = self.mode(custom_mode = "STABILIZED")
+    #     check = agent3.mode(custom_mode = 'MANUAL')
+    #     # if check.success == True:
+    #     self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+    #
+    # @pyqtSlot() ##
+    # def slot45(self): # click offboard thread on
+    #     self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
+    #     agent3.OT.start()
+    #
+    # @pyqtSlot() ##
+    # def slot46(self):  # click offboard thread off
+    #     self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("off"))
+    #     agent3.OT.myExit()
+    #
+    # @pyqtSlot() ##
+    # def slot47(self):  # click offboard thread suspend
+    #     self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("suspend"))
+    #     agent3.OT.mySuspend()
+    #
+    # @pyqtSlot() ##
+    # def slot48(self):  # click offboard thread resume
+    #     self.tableWidget_3.setItem(3, 0, QtWidgets.QTableWidgetItem("on"))
+    #     agent3.OT.myResume()
+    #
+    # @pyqtSlot()
+    # def slot49(self): # click offboard input as joystick
+    #     self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("joystick"))
+    #     self.ctrl_type = 'joystick'
+    #
+    # @pyqtSlot()
+    # def slot50(self): # click offboard input as autonomous
+    #     self.tableWidget_3.setItem(2, 0, QtWidgets.QTableWidgetItem("auto"))
+    #     self.ctrl_type = 'auto'
+    #     print(self.tableWidget.item(2,0).text())
+    #     print(self.tableWidget.item(2,0).text() == 'ff')
+    #
+    # @pyqtSlot()
+    # def slot51(self): # horizontal slider(desired pos (x))
+    #     agent3.des_x = self.slider_des_x_3.value()
+    #
+    # @pyqtSlot()
+    # def slot52(self): # horizontal slider(desired pos (y))
+    #     agent3.des_y = self.slider_des_y_3.value()
+    #
+    # @pyqtSlot()
+    # def slot53(self): # horizontal slider(desired pos (z))
+    #     agent3.des_z = self.slider_des_z_3.value()
+    #
+    # @pyqtSlot()
+    # def slot54(self): # run waypoint flight (set waypoint trajectory)
+    #     self.traj = traj_gen()
+    #     self.traj.coeff_x = self.traj.calc_coeff(self.traj.wp[0, :], self.traj.T, self.traj.S)
+    #     self.traj.coeff_y = self.traj.calc_coeff(self.traj.wp[1, :], self.traj.T, self.traj.S)
+    #     self.traj.coeff_z = self.traj.calc_coeff(self.traj.wp[2, :], self.traj.T, self.traj.S)
+    #     self.waypoint_run=1
 
     ### all UAVs
     @pyqtSlot()
@@ -903,8 +994,6 @@ class FDI_thread(Thread):
                     FDI.filter.predict(dt = dt)
                     FDI.filter.update(z=z)
 
-
-
                     # FDI
                     P = FDI.filter.P
                     R = FDI.filter.R
@@ -944,8 +1033,23 @@ class FDI_thread(Thread):
                     h[2] = np.dot(np.dot(res_3, np.linalg.inv(Sig_3)), res_3)
                     h[3] = np.dot(np.dot(res_4, np.linalg.inv(Sig_4)), res_4)
                     h[4] = np.dot(np.dot(res_5, np.linalg.inv(Sig_5)), res_5)
+                    #
+                    # np.append(FDI.h_uav1, 1)
+                    # np.delete(FDI.h_uav1, )
 
-                    # print(h)
+                    FDI.h_uav1.insert(len(FDI.h_uav1), h[0])
+                    FDI.h_uav2.insert(len(FDI.h_uav2), h[1])
+                    FDI.h_uav3.insert(len(FDI.h_uav3), h[2])
+                    FDI.h_uav4.insert(len(FDI.h_uav4), h[3])
+                    FDI.h_uav5.insert(len(FDI.h_uav5), h[4])
+
+                    if len(FDI.h_uav1)>20:
+                        FDI.h_uav1.pop(0)
+                        FDI.h_uav2.pop(0)
+                        FDI.h_uav3.pop(0)
+                        FDI.h_uav4.pop(0)
+                        FDI.h_uav5.pop(0)
+
 
                 self.time_prev = self.time_now
 
@@ -1187,12 +1291,12 @@ class setpoint_att(object):
             state_vy = agent5.vel_y
             state_vz = agent5.vel_z
 
-        # err_x = self.des_x - self.state_x
-        # err_y = self.des_y - self.state_y
+        err_x = self.des_x - self.state_x
+        err_y = self.des_y - self.state_y
         err_z = self.des_z - self.state_z
 
-        # err_vx = self.des_vx - state_vx
-        # err_vy = self.des_vy - state_vy
+        err_vx = self.des_vx - state_vx
+        err_vy = self.des_vy - state_vy
         err_vz = self.des_vz - state_vz
 
         # -----------------------------------------------------------------
@@ -1214,11 +1318,20 @@ class setpoint_att(object):
 
         V = agent1.formation_velocity
         th = agent1.formation_heading * math.pi/180
+
+        # triangle
         Xd = np.array([0, 0, V * np.cos(th), V * np.sin(th),
                        -3 * np.cos(math.pi/4 - th), 3 * np.sin(math.pi/4 - th), V * np.cos(th), V * np.sin(th),
                        -3 * np.cos(math.pi/4 + th), -3 * np.sin(math.pi/4 + th), V * np.cos(th), V * np.sin(th),
                        -5 * np.cos(math.pi / 4 - th), 5 * np.sin(math.pi / 4 - th), V * np.cos(th), V * np.sin(th),
                        -5 * np.cos(math.pi / 4 + th), -5 * np.sin(math.pi / 4 + th), V * np.cos(th), V * np.sin(th)])
+
+        # hex
+        # Xd = np.array([0, 0, V * np.cos(th), V * np.sin(th),
+        #                -3 * np.cos(math.pi/4 - th), 3.5 * np.sin(math.pi/4 - th), V * np.cos(th), V * np.sin(th),
+        #                -3 * np.cos(math.pi/4 + th), -3.5 * np.sin(math.pi/4 + th), V * np.cos(th), V * np.sin(th),
+        #                -6 * np.cos(math.pi / 4 - th), 2.3 * np.sin(math.pi / 4 - th), V * np.cos(th), V * np.sin(th),
+        #                -6 * np.cos(math.pi / 4 + th), -2.3 * np.sin(math.pi / 4 + th), V * np.cos(th), V * np.sin(th)])
 
         X = np.array([agent1.position.pose.position.x, agent1.position.pose.position.y, agent1.vel_x, agent1.vel_y,
                       agent2.position.pose.position.x, agent2.position.pose.position.y, agent2.vel_x, agent2.vel_y,
@@ -1230,12 +1343,21 @@ class setpoint_att(object):
         temp = np.concatenate((kap1 * L, kap2 * L + kap3 * np.eye(n)), axis=1)
         U = np.dot(np.dot(-np.kron(temp, np.eye(m)), Hxv), np.transpose(X - Xd))
 
+        # =================================================================
+        acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
+        acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
+        acc_comm_z = self.des_az + self.Kv_z * err_vz + self.Kp_z * err_z
+
         if idx_uav == 1:
             acc_comm_x = U[0]
             acc_comm_y = U[1]
         elif idx_uav == 2:
-            acc_comm_x = U[2]
-            acc_comm_y = U[3]
+            if agent.manual == True:
+                acc_comm_x = acc_comm_x
+                acc_comm_y = acc_comm_y
+            else:
+                acc_comm_x = U[2]
+                acc_comm_y = U[3]
         elif idx_uav == 3:
             acc_comm_x = U[4]
             acc_comm_y = U[5]
@@ -1245,11 +1367,6 @@ class setpoint_att(object):
         elif idx_uav == 5:
             acc_comm_x = U[8]
             acc_comm_y = U[9]
-
-        # =================================================================
-        # acc_comm_x = self.des_ax + self.Kv_x * err_vx + self.Kp_x * err_x
-        # acc_comm_y = self.des_ay + self.Kv_y * err_vy + self.Kp_y * err_y
-        acc_comm_z = self.des_az + self.Kv_z * err_vz + self.Kp_z * err_z
 
         u1 = self.m * (self.g + acc_comm_z)
 
@@ -1305,7 +1422,6 @@ class setpoint_att(object):
 
     def talk(self, idx_uav):
         # print(self.theta)
-        self.cmd_att.pose.position.z = 10.0
         if idx_uav == 1:
             agent1.pub_att.publish(self.cmd_att)
             agent1.pub_thr.publish(self.cmd_thr)

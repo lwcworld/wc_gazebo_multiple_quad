@@ -251,8 +251,8 @@ class PX4_GUI(QtWidgets.QDialog):
         # check = self.mode(custom_mode="STABILIZED")
         check = agent1.mode(custom_mode='MANUAL')
 
-        if check.success == True:
-            self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot5(self): # click offboard thread on
@@ -322,15 +322,15 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot23(self): # click offboard radio button
         # !! should check there is periodic ctrl command
         check = agent2.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+        # if check.success == True:
+        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()
     def slot24(self): # click stabilize radio button
         # check = self.mode(custom_mode="STABILIZED")
         check = agent2.mode(custom_mode='MANUAL')
-        if check.success == True:
-            self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget_2.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot25(self): # click offboard thread on
@@ -399,15 +399,15 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot43(self): # click offboard radio button
         # !! should check there is periodic ctrl command
         check = agent3.mode(custom_mode="OFFBOARD")
-        if check.success == True:
-            self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
+        # if check.success == True:
+        self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("offboard"))
 
     @pyqtSlot()
     def slot44(self): # click stabilize radio button
         # check = self.mode(custom_mode = "STABILIZED")
         check = agent3.mode(custom_mode = 'MANUAL')
-        if check.success == True:
-            self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
+        # if check.success == True:
+        self.tableWidget_3.setItem(1, 0, QtWidgets.QTableWidgetItem("stabilize"))
 
     @pyqtSlot() ##
     def slot45(self): # click offboard thread on
