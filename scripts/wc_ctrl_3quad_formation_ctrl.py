@@ -95,7 +95,7 @@ agent3 = Data_storage(idx_uav=3)
 class PX4_GUI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.ui = uic.loadUi("gui_3_quad_formation_ctrl.ui", self)
+        self.ui = uic.loadUi("gui_window/gui_3_quad_formation_ctrl.ui", self)
         self.ui.show()
 
         self.srv_reset = g_set_state = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)

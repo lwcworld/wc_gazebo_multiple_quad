@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/lwc/catkin_ws/src/wc_gazebo_multiple_quad/scripts/FDI_model_1.ckpt"
+all_model_checkpoint_paths: "/home/lwc/catkin_ws/src/wc_gazebo_multiple_quad/scripts/FDI_model_1.ckpt"

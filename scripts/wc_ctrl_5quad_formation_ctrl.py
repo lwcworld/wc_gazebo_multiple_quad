@@ -274,7 +274,7 @@ FDI = Data_FDI()
 class PX4_GUI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.ui = uic.loadUi("gui_5_quad_formation_ctrl.ui", self)
+        self.ui = uic.loadUi("gui_window/gui_5_quad_formation_ctrl.ui", self)
         self.ui.show()
 
         self.srv_reset = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)

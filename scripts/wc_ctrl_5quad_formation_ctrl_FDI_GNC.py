@@ -44,56 +44,70 @@ import random
 
 def local_position_callback_1(msg):
     # print(msg)
-    agent1.position_true = msg
-    agent1.position = agent1.position_true
-    agent1.position.pose.position.x = agent1.position.pose.position.x
-    agent1.position.pose.position.y = agent1.position.pose.position.y
+    agent1.position = msg
 
     if agent1.manual == True:
+        agent1.position.pose.position.x = agent1.position.pose.position.x  + np.random.normal(0,10)
+        agent1.position.pose.position.y = agent1.position.pose.position.y  + np.random.normal(0,10)
+
         agent1.position.pose.position.x = agent1.position.pose.position.x + 3
         agent1.position.pose.position.y = agent1.position.pose.position.y + 3
+    else:
+        agent1.position.pose.position.x = agent1.position.pose.position.x
+        agent1.position.pose.position.y = agent1.position.pose.position.y
 
 def local_position_callback_2(msg):
-    agent2.position_true = msg
-    agent2.position = agent2.position_true
-    agent2.position.pose.position.x = agent2.position.pose.position.x + 1
-    agent2.position.pose.position.y = agent2.position.pose.position.y + 1
+    agent2.position = msg
 
     if agent2.manual == True:
-        # bias fault
-        agent2.position.pose.position.x = agent2.position_true.pose.position.x - 3
-        agent2.position.pose.position.y = agent2.position_true.pose.position.y + 3
+        # agent2.position.pose.position.x = agent2.position.pose.position.x + 1  + np.random.normal(0,10)
+        # agent2.position.pose.position.y = agent2.position.pose.position.y + 1  + np.random.normal(0,10)
+
+        agent2.position.pose.position.x = agent2.position.pose.position.x  + np.random.normal(0,5)
+        agent2.position.pose.position.y = agent2.position.pose.position.y  + np.random.normal(0,5)
+    else:
+        agent2.position.pose.position.x = agent2.position.pose.position.x + 1
+        agent2.position.pose.position.y = agent2.position.pose.position.y + 1
 
 def local_position_callback_3(msg):
-    agent3.position_true = msg
-    agent3.position = agent3.position_true
-    agent3.position_true.pose.position.x = agent3.position_true.pose.position.x + 1
-    agent3.position_true.pose.position.y = agent3.position_true.pose.position.y - 1
+    agent3.position = msg
 
     if agent3.manual == True:
-        # bias fault
-        agent3.position.pose.position.x = agent3.position_true.pose.position.x + 3
-        agent3.position.pose.position.y = agent3.position_true.pose.position.y - 3
+        # agent3.position.pose.position.x = agent3.position.pose.position.x + 1  + np.random.normal(0,10)
+        # agent3.position.pose.position.y = agent3.position.pose.position.y - 1  + np.random.normal(0,10)
+
+        agent3.position.pose.position.x = agent3.position.pose.position.x + 3
+        agent3.position.pose.position.y = agent3.position.pose.position.y - 3
+    else:
+        agent3.position.pose.position.x = agent3.position.pose.position.x + 1
+        agent3.position.pose.position.y = agent3.position.pose.position.y - 1
 
 def local_position_callback_4(msg):
-    agent4.position_true = msg
-    agent4.position = agent4.position_true
-    agent4.position.pose.position.x = agent4.position.pose.position.x + 2
-    agent4.position.pose.position.y = agent4.position.pose.position.y + 2
+    agent4.position = msg
 
     if agent4.manual == True:
+        agent4.position.pose.position.x = agent4.position.pose.position.x + 2 + np.random.normal(0,10)
+        agent4.position.pose.position.y = agent4.position.pose.position.y + 2 + np.random.normal(0,10)
+
         agent4.position.pose.position.x = agent4.position.pose.position.x + 5
         agent4.position.pose.position.y = agent4.position.pose.position.y + 5
+    else:
+        agent4.position.pose.position.x = agent4.position.pose.position.x + 2
+        agent4.position.pose.position.y = agent4.position.pose.position.y + 2
 
 def local_position_callback_5(msg):
-    agent5.position_true = msg
-    agent5.position = agent5.position_true
-    agent5.position.pose.position.x = agent5.position.pose.position.x + 2
-    agent5.position.pose.position.y = agent5.position.pose.position.y - 2
+    agent5.position = msg
 
     if agent5.manual == True:
+        agent5.position.pose.position.x = agent5.position.pose.position.x + 2 + np.random.normal(0,10)
+        agent5.position.pose.position.y = agent5.position.pose.position.y - 2 + np.random.normal(0,10)
+
         agent5.position.pose.position.x = agent5.position.pose.position.x + 5
         agent5.position.pose.position.y = agent5.position.pose.position.y + 5
+    else:
+        agent5.position.pose.position.x = agent5.position.pose.position.x + 2
+        agent5.position.pose.position.y = agent5.position.pose.position.y - 2
+
 
 def local_velocity_callback_1(msg):
     agent1.velocity = msg
@@ -191,10 +205,8 @@ class Data_agent(object):
         self.yaw_cmd = 0
         self.throttle_cmd = 0
 
-        self.position = PoseStamped() # measured position
-        self.position_true = PoseStamped() # true position
-        self.velocity = TwistStamped() # measured velocity
-
+        self.position = PoseStamped()
+        self.velocity = TwistStamped()
         self.vel_x = 0
         self.vel_y = 0
         self.vel_z = 0
@@ -249,16 +261,6 @@ class Data_FDI(object):
         z = np.array(z)
 
         return z
-    def get_true_data(self):
-        Pos = np.array([agent1.position_true.pose.position.x, agent1.position_true.pose.position.y,
-                      agent2.position_true.pose.position.x, agent2.position_true.pose.position.y,
-                      agent3.position_true.pose.position.x, agent3.position_true.pose.position.y,
-                      agent4.position_true.pose.position.x, agent4.position_true.pose.position.y,
-                      agent5.position_true.pose.position.x, agent5.position_true.pose.position.y])
-        x = np.array(Pos)
-
-        return Pos
-
 
     def filter_init(self):
         ## UKF filter parameters
@@ -444,15 +446,19 @@ class PX4_GUI(QtWidgets.QDialog):
             self.time_now = rospy.get_time() - self.time_start
 
             if self.time_now > 2 and self.mode == 0:
+
+                self.mode = 2
                 self.slot512()
-                self.mode = 1
-            # elif self.time_now >7 and self.mode == 1:
-            #     self.slot512()
-            #     self.mode = 2
-            # elif self.time_now >12 and self.mode == 2:
-            #     self.slot512()
-            #     self.mode = 3
-            elif self.time_now > 13 and self.mode == 1:
+            elif self.time_now >7 and self.mode == 1:
+
+                self.mode = 2
+                self.slot512()
+            elif self.time_now >12 and self.mode == 2:
+
+                self.mode = 2
+                self.slot512()
+
+            if self.time_now > 12:
                 sys.exit()
 
             if self.time_now > 6 and self.fault == 0:
@@ -513,7 +519,7 @@ class PX4_GUI(QtWidgets.QDialog):
         if self.count_update == 1:
             figure = Figure()
             axes   = figure.gca()
-            axes.plot(FDI.h_uav1)
+            axes.plot(FDI.h_uav1,'b')
             self.canvas_uav1 = FigureCanvas(figure)
             self.canvas_uav1.setGeometry(0, 0, 540, 100)
             self.scene_uav1.addWidget(self.canvas_uav1)
@@ -523,7 +529,12 @@ class PX4_GUI(QtWidgets.QDialog):
         elif self.count_update == 3:
             figure = Figure()
             axes = figure.gca()
-            axes.plot(FDI.h_uav2)
+            print(np.mean(FDI.h_uav2))
+            if np.mean(FDI.h_uav2) > 10.:
+                axes.plot(FDI.h_uav2,'r')
+            else:
+                axes.plot(FDI.h_uav2,'b')
+
             canvas = FigureCanvas(figure)
             canvas.setGeometry(0, 0, 540, 100)
             self.scene_uav2.addWidget(canvas)
@@ -534,7 +545,7 @@ class PX4_GUI(QtWidgets.QDialog):
         elif self.count_update == 5:
             figure = Figure()
             axes = figure.gca()
-            axes.plot(FDI.h_uav3)
+            axes.plot(FDI.h_uav3,'b')
             canvas = FigureCanvas(figure)
             canvas.setGeometry(0, 0, 540, 100)
             self.scene_uav3.addWidget(canvas)
@@ -545,7 +556,7 @@ class PX4_GUI(QtWidgets.QDialog):
         elif self.count_update == 7:
             figure = Figure()
             axes = figure.gca()
-            axes.plot(FDI.h_uav4)
+            axes.plot(FDI.h_uav4,'b')
             canvas = FigureCanvas(figure)
             canvas.setGeometry(0, 0, 540, 100)
             self.scene_uav4.addWidget(canvas)
@@ -556,7 +567,7 @@ class PX4_GUI(QtWidgets.QDialog):
         elif self.count_update == 9:
             figure = Figure()
             axes = figure.gca()
-            axes.plot(FDI.h_uav5)
+            axes.plot(FDI.h_uav5,'b')
             canvas = FigureCanvas(figure)
             canvas.setGeometry(0, 0, 540, 100)
             self.scene_uav5.addWidget(canvas)
@@ -650,9 +661,9 @@ class PX4_GUI(QtWidgets.QDialog):
     def slot20(self): # manual checkbox toggled
         if self.checkBox_manual.isChecked()==False:
             # manual_idx = random.randint(0,4)
-            fault_uav = [2]
+            aa = [1]
 
-            manual_idx = random.choice(fault_uav)
+            manual_idx = random.choice(aa)
 
             if manual_idx == 0:
                 agent1.manual = True
@@ -927,9 +938,15 @@ class PX4_GUI(QtWidgets.QDialog):
         if FDI.log_on == False:
             self.time_start = rospy.get_time()
         else:
-            heading_op = [0]
-            self.slider_formation_heading.setValue(heading_op[self.heading_idx])
-            self.slider_formation_velocity.setValue(15)
+            if self.mode == 1:
+                self.slider_formation_heading.setValue(15)
+                self.slider_formation_velocity.setValue(15)
+            if self.mode == 2:
+                self.slider_formation_heading.setValue(0)
+                self.slider_formation_velocity.setValue(15)
+            if self.mode == 3:
+                self.slider_formation_heading.setValue(-15)
+                self.slider_formation_velocity.setValue(15)
 
         FDI.log_on = True
 
@@ -1099,7 +1116,6 @@ class FDI_thread(Thread):
                 if FDI.FDI_on == True:
                     # get sensor data
                     z = FDI.get_sensor_data()
-                    x = FDI.get_true_data()
 
                     FDI.filter.predict(dt = dt)
                     FDI.filter.update(z=z)
@@ -1153,28 +1169,6 @@ class FDI_thread(Thread):
                     FDI.h_uav4.insert(len(FDI.h_uav4), h[3])
                     FDI.h_uav5.insert(len(FDI.h_uav5), h[4])
 
-                    # where to write
-                    if FDI.log_on == True:
-                        with open('data/test_h_U3_F_6.csv','a') as csvfile:
-                            writer=csv.writer(csvfile, delimiter=',')
-                            writer.writerow(h)
-                            csvfile.close()
-
-                        with open('data/test_z_U3_F_6.csv','a') as csvfile:
-                            writer=csv.writer(csvfile, delimiter=',')
-                            writer.writerow(z)
-                            csvfile.close()
-
-                        with open('data/test_x_U3_F_6.csv','a') as csvfile:
-                            writer=csv.writer(csvfile, delimiter=',')
-                            writer.writerow(x)
-                            csvfile.close()
-
-                        with open('data/test_fault_U3_F_6.csv', 'a') as csvfile:
-                            writer=csv.writer(csvfile, delimiter=',')
-                            isfault = np.array([agent1.isfault, agent2.isfault, agent3.isfault, agent4.isfault, agent5.isfault])
-                            writer.writerow(isfault)
-                            csvfile.close()
 
                     if len(FDI.h_uav1)>20:
                         FDI.h_uav1.pop(0)
